@@ -1,6 +1,5 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { Button } from './Button';
-import { GAME_SPEED_START, JUMP_FORCE, GRAVITY } from '../constants';
 
 interface GameProps {
   onGameOver: (score: number) => void;
@@ -15,16 +14,33 @@ export const Game: React.FC<GameProps> = ({ onGameOver, userSkin }) => {
   const [score, setScore] = useState(0);
   const [isDead, setIsDead] = useState(false);
 
-  // Game state refs (to avoid stale closures in requestAnimationFrame)
+  // --- THÔNG SỐ VẬT LÝ & SPRITE ---
+  const INITIAL_SPEED = 2.5;
+  const GRAVITY = 0.8;      // Trọng lực mạnh giúp rơi nhanh
+  const JUMP_FORCE = 13.5;  // Lực nhảy mạnh để bật lên dứt khoát
+  
+  // Tọa độ Cactus trong file sprite của bạn (Cần điều chỉnh cho khớp chính xác pixel)
+  const CACTUS_SPRITE = {
+    x: 228,   // Vị trí X bắt đầu của cụm xương rồng trong ảnh
+    y: 2,     // Vị trí Y
+    w: 17,    // Chiều rộng một cây đơn (ước tính)
+    h: 35     // Chiều cao
+  };
+
+  const spriteImg = useMemo(() => {
+    const img = new Image();
+    img.src = '/assets/offline-sprite-1x.png'; // Đường dẫn file bạn vừa gửi
+    return img;
+  }, []);
+
   const gameState = useRef({
     dinoY: 0,
     dinoVelocity: 0,
     isJumping: false,
     obstacles: [] as { x: number; width: number; height: number }[],
-    gameSpeed: GAME_SPEED_START,
+    gameSpeed: INITIAL_SPEED,
     score: 0,
-    nextSpawnGap: 0, // Distance to wait before spawning next group
-    lastSpeedUpdateScore: 0, // Track when we last increased speed
+    nextSpawnGap: 0,
   });
 
   const requestRef = useRef<number>(0);
@@ -35,25 +51,23 @@ export const Game: React.FC<GameProps> = ({ onGameOver, userSkin }) => {
       dinoVelocity: 0,
       isJumping: false,
       obstacles: [],
-      gameSpeed: GAME_SPEED_START,
+      gameSpeed: INITIAL_SPEED,
       score: 0,
-      nextSpawnGap: Math.random() * 200 + 400, // Initial gap
-      lastSpeedUpdateScore: 0,
+      nextSpawnGap: 400,
     };
     setScore(0);
     setIsDead(false);
     setIsPlaying(true);
-    requestRef.current = requestAnimationFrame(gameLoop);
-  }, []);
+  }, [INITIAL_SPEED]);
 
   const jump = useCallback(() => {
     if (!gameState.current.isJumping && isPlaying) {
       gameState.current.dinoVelocity = -JUMP_FORCE;
       gameState.current.isJumping = true;
-    } else if (isDead) {
+    } else if (isDead || (!isPlaying && !isDead)) {
       resetGame();
     }
-  }, [isPlaying, isDead, resetGame]);
+  }, [isPlaying, isDead, resetGame, JUMP_FORCE]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -71,186 +85,130 @@ export const Game: React.FC<GameProps> = ({ onGameOver, userSkin }) => {
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) return;
 
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
     const state = gameState.current;
-    
-    // --- 1. Physics Update ---
+    const groundY = canvas.height - 50;
+
+    // --- 1. Cập nhật vật lý (Rơi nhanh) ---
     state.dinoVelocity += GRAVITY;
     state.dinoY += state.dinoVelocity;
 
-    const groundY = canvas.height - 50;
-    if (state.dinoY > groundY - 40) { // 40 is dino height
+    if (state.dinoY > groundY - 40) {
       state.dinoY = groundY - 40;
       state.dinoVelocity = 0;
       state.isJumping = false;
     }
 
-    // --- 2. Spawning Logic (Groups & Gaps) ---
-    // Calculate distance from the right edge to the last obstacle
+    // --- 2. Tạo vật cản ---
     let gapToLastObstacle = canvas.width;
     if (state.obstacles.length > 0) {
       const lastObs = state.obstacles[state.obstacles.length - 1];
       gapToLastObstacle = canvas.width - (lastObs.x + lastObs.width);
     }
 
-    // Spawn if the gap is large enough
     if (gapToLastObstacle > state.nextSpawnGap) {
-      // Determine group size based on score difficulty
-      let groupSize = 1;
-      if (state.score > 500 && Math.random() > 0.5) groupSize = 2;
-      if (state.score > 1000 && Math.random() > 0.7) groupSize = 3;
-
-      const obsWidth = 30 + Math.random() * 10;
-      const obsHeight = 30 + Math.random() * 20;
-
-      for (let i = 0; i < groupSize; i++) {
-        state.obstacles.push({
-          x: canvas.width + (i * (obsWidth + 5)), // 5px gap between members of a group
-          width: obsWidth,
-          height: obsHeight,
-        });
-      }
-
-      // Calculate next gap
-      // Minimum gap must increase with speed to remain jumpable
-      // (Speed * 20) ensures roughly 20 frames of clearance at current speed
-      const minGap = 250 + (state.gameSpeed * 15); 
-      const maxGap = 500 + (state.gameSpeed * 25);
-      state.nextSpawnGap = minGap + Math.random() * (maxGap - minGap);
+      state.obstacles.push({
+        x: canvas.width,
+        width: 25,
+        height: 40,
+      });
+      state.nextSpawnGap = 200 + (state.gameSpeed * 10) + Math.random() * 300;
     }
 
-    // --- 3. Update Obstacles ---
-    state.obstacles.forEach((obs) => {
-      obs.x -= state.gameSpeed;
-    });
-
-    // Remove off-screen obstacles
-    state.obstacles = state.obstacles.filter(obs => obs.x + obs.width > -100);
-
-    // --- 4. Score & Speed Progression ---
-    // Score increases based on distance traveled (speed)
+    // --- 3. Cập nhật vị trí ---
+    state.obstacles.forEach((obs) => { obs.x -= state.gameSpeed; });
+    state.obstacles = state.obstacles.filter(obs => obs.x + obs.width > -50);
     state.score += 0.05 * state.gameSpeed;
     setScore(Math.floor(state.score));
+    state.gameSpeed = Math.min(INITIAL_SPEED + (state.score / 1500), 12);
 
-    // Increase speed every 100 points
-    if (Math.floor(state.score) > state.lastSpeedUpdateScore + 100) {
-      state.gameSpeed += 0.5;
-      state.lastSpeedUpdateScore = Math.floor(state.score);
-      // Cap max speed
-      if (state.gameSpeed > 15) state.gameSpeed = 15;
-    }
-
-    // --- 5. Collision Detection ---
-    const dinoHitbox = { 
-      x: 50 + 5, // padding
-      y: state.dinoY + 5, 
-      w: 40 - 10, 
-      h: 40 - 10 
-    };
-    
+    // --- 4. Kiểm tra va chạm (GIẢM HITBOX) ---
+    const dinoHitbox = { x: 58, y: state.dinoY + 8, w: 22, h: 25 };
     let collision = false;
+
     state.obstacles.forEach(obs => {
+      // Hitbox của xương rồng thu nhỏ đáng kể (chỉ lấy phần lõi)
+      const obsHitbox = {
+        x: obs.x + 8,
+        y: groundY - obs.height + 5,
+        w: obs.width - 16,
+        h: obs.height - 5
+      };
+
       if (
-        dinoHitbox.x < obs.x + obs.width &&
-        dinoHitbox.x + dinoHitbox.w > obs.x &&
-        dinoHitbox.y < groundY && 
-        dinoHitbox.y + dinoHitbox.h > groundY - obs.height
+        dinoHitbox.x < obsHitbox.x + obsHitbox.w &&
+        dinoHitbox.x + dinoHitbox.w > obsHitbox.x &&
+        dinoHitbox.y < obsHitbox.y + obsHitbox.h &&
+        dinoHitbox.y + dinoHitbox.h > obsHitbox.y
       ) {
         collision = true;
       }
     });
 
-    // --- 6. Drawing ---
+    // --- 5. Vẽ (Sử dụng kỹ thuật cắt Sprite) ---
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Draw Ground
+    // Vẽ mặt đất
+    ctx.strokeStyle = '#555';
     ctx.beginPath();
     ctx.moveTo(0, groundY);
     ctx.lineTo(canvas.width, groundY);
-    ctx.strokeStyle = '#64748b';
-    ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Draw Dino
-    ctx.fillStyle = '#3898EC'; // SUI Blue
-    ctx.fillRect(50, state.dinoY, 40, 40);
-    // Eye
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(75, state.dinoY + 5, 8, 8);
+    // Vẽ Dino (Cũng cắt từ Sprite - ví dụ tọa độ x:76, y:2, w:44, h:47)
+    if (spriteImg.complete) {
+      ctx.drawImage(spriteImg, 76, 2, 44, 47, 50, state.dinoY, 40, 40);
+    }
 
-    // Draw Obstacles
-    ctx.fillStyle = '#22c55e'; // Green
+    // Vẽ Xương rồng (Cắt từ Sprite)
     state.obstacles.forEach(obs => {
-      ctx.fillRect(obs.x, groundY - obs.height, obs.width, obs.height);
+      if (spriteImg.complete) {
+        // Cú pháp: drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
+        // s = source (ảnh gốc), d = destination (trên canvas)
+        ctx.drawImage(
+          spriteImg, 
+          CACTUS_SPRITE.x, CACTUS_SPRITE.y, CACTUS_SPRITE.w, CACTUS_SPRITE.h, 
+          obs.x, groundY - obs.height, obs.width, obs.height
+        );
+      }
     });
 
     if (collision) {
       setIsPlaying(false);
       setIsDead(true);
       onGameOver(Math.floor(state.score));
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
     } else {
       requestRef.current = requestAnimationFrame(gameLoop);
     }
-
-  }, [onGameOver]);
+  }, [onGameOver, spriteImg, INITIAL_SPEED, GRAVITY, JUMP_FORCE]);
 
   useEffect(() => {
-    // Initial draw for instructions
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (canvas && ctx && !isPlaying && !isDead) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.font = '20px "Press Start 2P"';
-      ctx.fillStyle = '#94a3b8';
-      ctx.textAlign = 'center';
-      ctx.fillText('PRESS SPACE TO START', canvas.width / 2, canvas.height / 2);
+    if (isPlaying && !isDead) requestRef.current = requestAnimationFrame(gameLoop);
+    return () => cancelAnimationFrame(requestRef.current);
+  }, [isPlaying, isDead, gameLoop]);
+
+  useEffect(() => {
+    if (containerRef.current && canvasRef.current) {
+      canvasRef.current.width = containerRef.current.clientWidth;
+      canvasRef.current.height = 300;
     }
-  }, [isPlaying, isDead]);
-
-  // Responsive Canvas
-  useEffect(() => {
-    const handleResize = () => {
-      if (containerRef.current && canvasRef.current) {
-        canvasRef.current.width = containerRef.current.clientWidth;
-        canvasRef.current.height = 300;
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    handleResize();
-    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   return (
     <div className="w-full flex flex-col items-center gap-4">
-      <div className="flex justify-between w-full max-w-4xl px-4 items-end">
-        <h2 className="text-xl font-pixel text-sui-400">SCORE: {score.toString().padStart(5, '0')}</h2>
-      </div>
-      
+      <div className="font-mono text-slate-500">HI SCORE: {score.toString().padStart(5, '0')}</div>
       <div 
-        ref={containerRef}
-        className="w-full max-w-4xl h-[300px] bg-slate-800 rounded-xl border-4 border-slate-700 shadow-2xl relative overflow-hidden"
+        ref={containerRef} 
+        className="w-full max-w-4xl h-[300px] bg-white border-b-2 border-slate-300 relative overflow-hidden cursor-pointer" 
         onClick={jump}
       >
         <canvas ref={canvasRef} className="block w-full h-full" />
-        
         {isDead && (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in">
-            <h3 className="text-3xl font-pixel text-red-500 mb-4">GAME OVER</h3>
-            <p className="text-slate-300 mb-6">You ran {Math.floor(score)}m</p>
-            <Button variant="pixel" onClick={resetGame}>TRY AGAIN</Button>
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/50">
+            <div className="text-2xl font-pixel text-slate-700 mb-4">G A M E  O V E R</div>
+            <Button variant="pixel" onClick={(e) => { e.stopPropagation(); resetGame(); }}>RETRY</Button>
           </div>
         )}
-
-        {!isPlaying && !isDead && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-transparent transition-colors cursor-pointer" onClick={resetGame}>
-               {/* Overlay is handled by canvas text mostly, but this catches clicks */}
-            </div>
-        )}
       </div>
-      
-      <p className="text-slate-500 text-sm font-mono mt-2">Spacebar or Tap to Jump</p>
     </div>
   );
 };
