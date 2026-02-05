@@ -1,0 +1,36 @@
+export enum View {
+  HOME = 'HOME',
+  SHOP = 'SHOP',
+  PROFILE = 'PROFILE',
+  AUTH = 'AUTH',
+  SETTINGS = 'SETTINGS',
+}
+
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  balanceSUI: number;
+  balanceDinoCoin: number;
+  walletAddress?: string;
+  highScore: number;
+  equippedSkin: string;
+  inventory: string[];
+}
+
+export interface ShopItem {
+  id: string;
+  name: string;
+  type: 'SKIN' | 'CURRENCY' | 'UPGRADE';
+  price: number;
+  currency: 'SUI' | 'DINO';
+  image: string;
+  description: string;
+  owned: boolean;
+}
+
+export enum GameState {
+  IDLE = 'IDLE',
+  RUNNING = 'RUNNING',
+  GAME_OVER = 'GAME_OVER',
+}
