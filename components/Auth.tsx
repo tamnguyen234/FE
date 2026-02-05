@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Button } from './Button';
-import { User } from '../types';
-import { MOCK_USER } from '../constants';
+// import { Button } from './Button'; // Removed unused import
+import { User } from '@/types';
+import { MOCK_USER } from '@/constants';
 import { Loader2, ShieldCheck } from 'lucide-react';
 
 interface AuthProps {
@@ -26,21 +26,21 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         
         // Simulate Address Derivation
         setTimeout(() => {
-           // Generate a random mock Sui address
-           const mockAddress = '0x' + Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join('').substring(0, 64);
+           // Giả lập đăng nhập thành công nhưng CHƯA có walletAddress
+           // User sẽ phải connect ví thủ công ở bước sau
            
            const zkUser: User = {
              ...MOCK_USER,
              id: `zk_${provider.toLowerCase()}_${Date.now()}`,
              username: `${provider}Runner`,
              email: `user@${provider.toLowerCase()}.com`,
-             walletAddress: mockAddress, // Derived from zkLogin
+             walletAddress: undefined, // Đặt là undefined để bắt buộc kết nối ví sau đó
            };
 
            setIsLoading(false);
            onLogin(zkUser);
-        }, 2000);
-      }, 1500);
+        }, 1500); // Giảm thời gian chờ một chút cho nhanh
+      }, 1000);
     }, 1000);
   };
 
@@ -106,7 +106,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
               <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700/50 flex items-start gap-3">
                  <ShieldCheck className="w-5 h-5 text-sui-400 shrink-0 mt-0.5" />
                  <p className="text-xs text-slate-400 leading-relaxed">
-                   Login seamlessly with your Web2 accounts. A unique Sui wallet address is derived from your credentials using Zero-Knowledge proofs.
+                   Login seamlessly with your Web2 accounts.
                  </p>
               </div>
             </>

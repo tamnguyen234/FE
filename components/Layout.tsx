@@ -1,7 +1,6 @@
 import React from 'react';
-import { View, User } from '../types';
-import { Button } from './Button';
-import { Home, ShoppingBag, User as UserIcon } from 'lucide-react';
+import { View, User } from '@/types';
+import { Home, Trophy, User as UserIcon } from 'lucide-react'; // Changed ShoppingBag to Trophy
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -34,24 +33,24 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onChangeV
                 active={currentView === View.HOME} 
                 onClick={() => onChangeView(View.HOME)} 
                 icon={<Home size={18} />}
-                label="Play"
+                label="Chơi ngay"
               />
               <NavButton 
-                active={currentView === View.SHOP} 
-                onClick={() => onChangeView(View.SHOP)} 
-                icon={<ShoppingBag size={18} />}
-                label="Shop"
+                active={currentView === View.LEADERBOARD} 
+                onClick={() => onChangeView(View.LEADERBOARD)} 
+                icon={<Trophy size={18} />}
+                label="BXH"
               />
               <NavButton 
                 active={currentView === View.PROFILE} 
                 onClick={() => onChangeView(View.PROFILE)} 
                 icon={<UserIcon size={18} />}
-                label="Profile"
+                label="Hồ sơ"
               />
               
               <div className="hidden md:flex ml-4 items-center gap-3 pl-4 border-l border-slate-700">
                 <div className="text-right">
-                  <p className="text-xs text-slate-400">Balance</p>
+                  <p className="text-xs text-slate-400">Số dư</p>
                   <p className="text-sm font-mono font-bold text-sui-400">{user.balanceSUI} SUI</p>
                 </div>
               </div>

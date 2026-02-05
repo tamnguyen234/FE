@@ -1,58 +1,26 @@
-import { ShopItem, User } from './types';
+import { ShopItem, User } from '@/types';
 
 export const MOCK_USER: User = {
   id: 'u_123',
   username: 'SuiRunner99',
   email: 'runner@sui.io',
-  balanceSUI: 145.5,
-  balanceDinoCoin: 2500,
-  highScore: 1250,
-  equippedSkin: 'default',
-  inventory: ['default'],
-  walletAddress: undefined, // Simulates not connected
+  balanceSUI: 1000, 
+  balanceDinoCoin: 500,
+  highScore: 0,
+  equippedSkin: '#3898EC', 
+  equippedBackground: 'linear-gradient(to bottom, #1e293b, #0f172a)', 
+  inventory: ['default_skin', 'default_bg'],
+  walletAddress: undefined, 
 };
 
-export const SHOP_ITEMS: ShopItem[] = [
-  {
-    id: 'skin_cyber',
-    name: 'Cyber Dino',
-    type: 'SKIN',
-    price: 500,
-    currency: 'DINO',
-    image: 'https://picsum.photos/200/200?random=1',
-    description: 'A futuristic cybernetic look for your runner.',
-    owned: false,
-  },
-  {
-    id: 'skin_gold',
-    name: 'Golden Rex',
-    type: 'SKIN',
-    price: 10,
-    currency: 'SUI',
-    image: 'https://picsum.photos/200/200?random=2',
-    description: 'Show off your wealth with this solid gold skin.',
-    owned: false,
-  },
-  {
-    id: 'coins_pack_small',
-    name: '100 DinoCoins',
-    type: 'CURRENCY',
-    price: 0.5,
-    currency: 'SUI',
-    image: 'https://picsum.photos/200/200?random=3',
-    description: 'A small pouch of coins to get you started.',
-    owned: false,
-  },
-  {
-    id: 'coins_pack_large',
-    name: '1000 DinoCoins',
-    type: 'CURRENCY',
-    price: 4,
-    currency: 'SUI',
-    image: 'https://picsum.photos/200/200?random=4',
-    description: 'A large chest of coins for the serious spender.',
-    owned: false,
-  }
+export const MOCK_LEADERBOARD = [
+  { id: '1', username: 'SuiWhale 🐋', score: 15000 },
+  { id: '2', username: 'DinoKing 🦖', score: 12500 },
+  { id: '3', username: 'SpeedDemon ⚡', score: 10000 },
+  { id: '4', username: 'CryptoNinja', score: 8500 },
+  { id: '5', username: 'ToTheMoon 🚀', score: 7200 },
+  { id: '6', username: 'PixelArtist', score: 6000 },
+  { id: '7', username: 'BlockChain', score: 4500 },
 ];
 
 export const GAME_SPEED_START = 5;

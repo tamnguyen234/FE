@@ -1,60 +1,80 @@
 import React, { useState, useEffect } from 'react';
-import { Layout } from './components/Layout';
-import { Auth } from './components/Auth';
-import { Game } from './components/Game';
-import { Shop } from './components/Shop';
-import { Profile } from './components/Profile';
-import { View, User, ShopItem } from './types';
+import { Layout } from '@/components/Layout';
+import { Auth } from '@/components/Auth';
+import { Game } from '@/components/Game';
+import { Leaderboard } from '@/components/Leaderboard';
+import { Profile } from '@/components/Profile';
+import { View, User, ShopItem } from '@/types';
+import { MOCK_USER } from '@/constants';
 
 function App() {
   const [currentView, setCurrentView] = useState<View>(View.AUTH);
   const [user, setUser] = useState<User | null>(null);
 
-  // Helper to change view
+  useEffect(() => {
+    const savedUser = localStorage.getItem('dino_user_data');
+    if (savedUser) {
+      try {
+        const parsed = JSON.parse(savedUser);
+        setUser(parsed);
+      } catch (e) {
+        console.error("Failed to load save data");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('dino_user_data', JSON.stringify(user));
+    }
+  }, [user]);
+
+  // Điều hướng có kiểm tra ví
   const handleViewChange = (view: View) => {
+    // Nếu muốn vào trang HOME (Chơi game) mà chưa kết nối ví -> Chặn và báo lỗi
+    if (view === View.HOME && (!user?.walletAddress)) {
+        alert("Vui lòng kết nối ví trong mục Profile để bắt đầu chơi!");
+        setCurrentView(View.PROFILE);
+        return;
+    }
     setCurrentView(view);
   };
 
-  // Auth Handler
   const handleLogin = (userData: User) => {
-    setUser(userData);
-    setCurrentView(View.HOME);
+    const startingUser = user && user.id === userData.id ? user : {
+       ...userData,
+       equippedSkin: userData.equippedSkin || MOCK_USER.equippedSkin,
+       equippedBackground: userData.equippedBackground || MOCK_USER.equippedBackground,
+       inventory: userData.inventory || MOCK_USER.inventory
+    };
+    
+    setUser(startingUser);
+
+    // LOGIC MỚI: Kiểm tra ví ngay sau khi login
+    if (startingUser.walletAddress) {
+        setCurrentView(View.HOME);
+    } else {
+        // Nếu chưa có ví, chuyển sang Profile để kết nối
+        alert("Đăng nhập thành công! Vui lòng kết nối ví để tiếp tục.");
+        setCurrentView(View.PROFILE);
+    }
   };
 
   const handleLogout = () => {
     setUser(null);
+    localStorage.removeItem('dino_user_data');
     setCurrentView(View.AUTH);
   };
 
   const handleConnectWallet = () => {
-    // Mock wallet connection
     if (user) {
-      const updatedUser = { ...user, walletAddress: '0x123...abc' };
+      // Giả lập kết nối ví thành công
+      const mockAddress = '0x' + Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join('').substring(0, 64);
+      const updatedUser = { ...user, walletAddress: mockAddress };
+      
       setUser(updatedUser);
-      alert('Wallet Connected Successfully!');
-    }
-  };
-
-  const handleBuyItem = (item: ShopItem) => {
-    if (!user) return;
-    
-    // Simple mock logic for purchase
-    if (item.currency === 'SUI' && user.balanceSUI >= item.price) {
-      setUser({
-        ...user,
-        balanceSUI: user.balanceSUI - item.price,
-        inventory: [...user.inventory, item.id]
-      });
-      alert(`Bought ${item.name}!`);
-    } else if (item.currency === 'DINO' && user.balanceDinoCoin >= item.price) {
-      setUser({
-        ...user,
-        balanceDinoCoin: user.balanceDinoCoin - item.price,
-        inventory: [...user.inventory, item.id]
-      });
-      alert(`Bought ${item.name}!`);
-    } else {
-      alert('Insufficient funds!');
+      alert('Kết nối ví thành công! Bạn có thể bắt đầu chơi.');
+      setCurrentView(View.HOME); // Chuyển ngay sang màn hình chơi game
     }
   };
 
@@ -64,21 +84,30 @@ function App() {
     }
   };
 
-  // Render content based on view
   const renderContent = () => {
     if (!user) return <Auth onLogin={handleLogin} />;
 
     switch (currentView) {
       case View.HOME:
         return (
-          <div className="flex-1 flex items-center justify-center p-4 bg-slate-900 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-800 to-slate-900">
-            <Game onGameOver={handleGameOver} userSkin={user.equippedSkin} />
+          <div 
+            className="flex-1 flex items-center justify-center p-4 transition-all duration-700"
+            style={{ background: user.equippedBackground }}
+          >
+            <Game 
+              onGameOver={handleGameOver} 
+              userSkin={user.equippedSkin} 
+            />
           </div>
         );
-      case View.SHOP:
-        return <Shop user={user} onBuy={handleBuyItem} />;
+      case View.LEADERBOARD:
+        return <Leaderboard currentUser={user} />;
       case View.PROFILE:
-        return <Profile user={user} onLogout={handleLogout} onConnectWallet={handleConnectWallet} onChangeView={handleViewChange} />;
+        return (
+          <div className="flex-1 bg-slate-900">
+             <Profile user={user} onLogout={handleLogout} onConnectWallet={handleConnectWallet} onChangeView={handleViewChange} />
+          </div>
+        );
       default:
         return <div className="p-10 text-center">Page Not Found</div>;
     }
